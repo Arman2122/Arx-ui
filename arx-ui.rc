@@ -1,0 +1,13 @@
+#!/sbin/openrc-run
+
+command="/usr/local/arx-ui/arx-ui"
+command_background=true
+pidfile="/run/arx-ui.pid"
+description="arx-ui Service"
+procname="arx-ui"
+depend() {
+    need net
+}
+start_pre(){
+    cd /usr/local/arx-ui
+}

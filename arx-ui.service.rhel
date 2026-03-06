@@ -1,0 +1,16 @@
+[Unit]
+Description=arx-ui Service
+After=network.target
+Wants=network.target
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/arx-ui
+Environment="XRAY_VMESS_AEAD_FORCED=false"
+Type=simple
+WorkingDirectory=/usr/local/arx-ui/
+ExecStart=/usr/local/arx-ui/arx-ui
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
