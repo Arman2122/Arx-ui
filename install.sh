@@ -522,13 +522,14 @@ prompt_and_setup_ssl() {
     echo -e "${green}1.${plain} Let's Encrypt for Domain (90-day validity, auto-renews)"
     echo -e "${green}2.${plain} Let's Encrypt for IP Address (6-day validity, auto-renews)"
     echo -e "${green}3.${plain} Custom SSL Certificate (Path to existing files)"
+    echo -e "${green}4.${plain} Skip SSL setup (use HTTP only)"
     echo -e "${blue}Note:${plain} Options 1 & 2 require port 80 open. Option 3 requires manual paths."
-    read -rp "Choose an option (default 2 for IP): " ssl_choice
+    read -rp "Choose an option (default 4 to skip): " ssl_choice
     ssl_choice="${ssl_choice// /}"  # Trim whitespace
-    
-    # Default to 2 (IP cert) if input is empty or invalid (not 1 or 3)
-    if [[ "$ssl_choice" != "1" && "$ssl_choice" != "3" ]]; then
-        ssl_choice="2"
+
+    # Default to 4 (skip) if input is empty or invalid
+    if [[ "$ssl_choice" != "1" && "$ssl_choice" != "2" && "$ssl_choice" != "3" ]]; then
+        ssl_choice="4"
     fi
 
     case "$ssl_choice" in
@@ -631,8 +632,12 @@ prompt_and_setup_ssl() {
 
         systemctl restart arx-ui >/dev/null 2>&1 || rc-service arx-ui restart >/dev/null 2>&1
         ;;
+    4)
+        echo -e "${yellow}Skipping SSL setup. Panel will run on HTTP.${plain}"
+        SSL_HOST="${server_ip}"
+        ;;
     *)
-        echo -e "${red}Invalid option. Skipping SSL setup.${plain}"
+        echo -e "${yellow}Skipping SSL setup. Panel will run on HTTP.${plain}"
         SSL_HOST="${server_ip}"
         ;;
     esac
@@ -682,10 +687,10 @@ config_after_install() {
             
             echo ""
             echo -e "${green}═══════════════════════════════════════════${plain}"
-            echo -e "${green}     SSL Certificate Setup (MANDATORY)     ${plain}"
+            echo -e "${green}     SSL Certificate Setup (OPTIONAL)      ${plain}"
             echo -e "${green}═══════════════════════════════════════════${plain}"
-            echo -e "${yellow}For security, SSL certificate is required for all panels.${plain}"
-            echo -e "${yellow}Let's Encrypt now supports both domains and IP addresses!${plain}"
+            echo -e "${yellow}SSL is recommended for security but not required.${plain}"
+            echo -e "${yellow}Let's Encrypt supports both domains and IP addresses.${plain}"
             echo ""
 
             prompt_and_setup_ssl "${config_port}" "${config_webBasePath}" "${server_ip}"
@@ -699,10 +704,17 @@ config_after_install() {
             echo -e "${green}Password:    ${config_password}${plain}"
             echo -e "${green}Port:        ${config_port}${plain}"
             echo -e "${green}WebBasePath: ${config_webBasePath}${plain}"
-            echo -e "${green}Access URL:  https://${SSL_HOST}:${config_port}/${config_webBasePath}${plain}"
+            # Check if SSL was configured
+            local has_cert=$(${xui_folder}/arx-ui setting -getCert true 2>/dev/null | grep 'cert:' | awk -F': ' '{print $2}' | tr -d '[:space:]')
+            if [[ -n "${has_cert}" ]]; then
+                echo -e "${green}Access URL:  https://${SSL_HOST}:${config_port}/${config_webBasePath}${plain}"
+                echo -e "${yellow}⚠ SSL Certificate: Enabled${plain}"
+            else
+                echo -e "${green}Access URL:  http://${SSL_HOST}:${config_port}/${config_webBasePath}${plain}"
+                echo -e "${yellow}⚠ SSL: Not configured (you can set it up later with arx-ui)${plain}"
+            fi
             echo -e "${green}═══════════════════════════════════════════${plain}"
             echo -e "${yellow}⚠ IMPORTANT: Save these credentials securely!${plain}"
-            echo -e "${yellow}⚠ SSL Certificate: Enabled and configured${plain}"
         else
             local config_webBasePath=$(gen_random_string 18)
             echo -e "${yellow}WebBasePath is missing or too short. Generating a new one...${plain}"
